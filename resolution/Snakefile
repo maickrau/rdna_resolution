@@ -1,0 +1,39 @@
+wildcard_constraints:
+	pathname = "chr\\d+_allele\\d+_coverage\\d+"
+
+rule get_spoa_consensus:
+	input:
+		"chr{chrnum}_loopseqs/allele{allelenum}_coverage{coveragenum}_loops.fa"
+	output:
+		"spoa_chr{chrnum}_allele{allelenum}_coverage{coveragenum}.fa"
+	run:
+		shell("./spoa --algorithm 1 --result 0 {input} > {output}")
+
+rule rotate_spoa_consensus:
+	input:
+		seq = "spoa_{pathname}.fa",
+		ref = "KY962518.fasta"
+	output:
+		seq = "spoa_{pathname}_rotated.fa"
+	run:
+		shell("scripts/rotate_heavy_path.py {input.ref} < {input.seq} > {output.seq}")
+
+rule rename_spoa_nonrotated:
+	input:
+		seq = "spoa_chr{chr}_allele{allele}_coverage{coverage}.fa"
+	output:
+		seq = "spoa_chr{chr}_allele{allele}_coverage{coverage}_unrotated.fa"
+	params:
+		copy_count = lambda wildcards: int((int(wildcards.coverage.split("e")[-1])+5)/10)
+	run:
+		shell("grep -v '>' < {input.seq} | awk 'BEGIN{{print \">chr{wildcards.chr}_allele{wildcards.allele}_coverage{wildcards.coverage}_copycount{params.copy_count}\"}}{{print;}}' > {output.seq}")
+
+rule rename_spoa:
+	input:
+		seq = "spoa_chr{chr}_allele{allele}_coverage{coverage}_rotated.fa"
+	output:
+		seq = "spoa_chr{chr}_allele{allele}_coverage{coverage}_unpolished.fa"
+	params:
+		copy_count = lambda wildcards: int((int(wildcards.coverage.split("e")[-1])+5)/10)
+	run:
+		shell("grep -v '>' < {input.seq} | awk 'BEGIN{{print \">chr{wildcards.chr}_allele{wildcards.allele}_coverage{wildcards.coverage}_copycount{params.copy_count}\"}}{{print;}}' > {output.seq}")

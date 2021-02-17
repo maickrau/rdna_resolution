@@ -1,0 +1,28 @@
+wildcard_constraints:
+	xx = "x+"
+
+rule recruit_round_0:
+	input:
+		seq = "initial_seq.fa",
+		reads = "hifi.fa"
+	output:
+		"reads_round_x.fa"
+	run:
+		shell("mummer -maxmatch -l 500 -b -threads 40 {input.seq} {input.reads} | scripts/pick_readnames_with_mums.py > picked_hifi_round0.txt"),
+		shell("cp picked_hifi_round0.txt picked.txt"),
+		shell("scripts/pick_reads_stdin.py < hifi.fa > {output}")
+
+
+rule recruit_round_n:
+	input:
+		previous = "reads_round_{xx}.fa",
+		reads = "hifi.fa"
+	output:
+		"reads_round_{xx}x.fa"
+	run:
+		shell("MBG -i {input.previous} -o graph-hpc-rec-round{wildcards.xx}.gfa -k 501 -w 10 -a 1 -u 3"),
+		shell("grep -P '^S' < graph-hpc-rec-round{wildcards.xx}.gfa | awk '{{print \">\" $2; print $3;}}' > contigs_round{wildcards.xx}.fa"),
+		shell("mummer -maxmatch -l 500 -b -threads 40 contigs_round{wildcards.xx}.fa {input.reads} | scripts/pick_readnames_with_mums.py > picked_hifi_round{wildcards.xx}.txt"),
+		shell("cp picked_hifi_round{wildcards.xx}.txt picked.txt"),
+		shell("scripts/pick_reads_stdin.py < hifi.fa > {output}")
+
